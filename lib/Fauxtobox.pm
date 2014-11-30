@@ -3,6 +3,8 @@ package Fauxtobox;
 use strict;
 use warnings;
 
+use Data::Munge qw(eval_string);
+
 use Exporter;
 our @ISA = qw(Exporter);
 
@@ -13,13 +15,6 @@ sub import {
     @_ = map /^[a-z0-9]+\z/ ? '$_' . $_ : $_, @_;
     unshift @_, $class;
     goto &{ $class->can('SUPER::import') };
-}
-
-sub eval_string {
-    my ($code) = @_;
-    my $v = eval $code;
-    die $@ if $@;
-    $v
 }
 
 sub _filetest {

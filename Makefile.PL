@@ -27,9 +27,10 @@ my %opt = (
         'Test::More'  => 0,
     },
     PREREQ_PM => {
-        'Exporter'       => 0,
         'strict'         => 0,
         'warnings'       => 0,
+        'Data::Munge'    => '0.05',
+        'Exporter'       => 0,
     },
 
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
