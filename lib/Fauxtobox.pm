@@ -9,230 +9,230 @@ our @ISA = qw(Exporter);
 our $VERSION = '0.01';
 
 sub import {
-	my $class = shift;
-	@_ = map /^[a-z0-9]+\z/ ? '$_' . $_ : $_, @_;
-	unshift @_, $class;
-	goto &{ $class->can('SUPER::import') };
+    my $class = shift;
+    @_ = map /^[a-z0-9]+\z/ ? '$_' . $_ : $_, @_;
+    unshift @_, $class;
+    goto &{ $class->can('SUPER::import') };
 }
 
 sub eval_string {
-	my ($code) = @_;
-	my $v = eval $code;
-	die $@ if $@;
-	$v
+    my ($code) = @_;
+    my $v = eval $code;
+    die $@ if $@;
+    $v
 }
 
 sub _filetest {
-	my ($name) = @_;
-	"test_$name" => eval_string("sub { -$name \$_[0] }")
+    my ($name) = @_;
+    "test_$name" => eval_string("sub { -$name \$_[0] }")
 }
 
 sub _xlist {
-	my ($n, $name) = @_;
-	my $xs = join '', map "\$x$_, ", 1 .. $n;
-	$name => eval_string "sub { my (\$arg, $xs) = \@_; $name(${xs}ref(\$arg) eq 'ARRAY' ? \@\$arg : \$_[0]) }"
+    my ($n, $name) = @_;
+    my $xs = join '', map "\$x$_, ", 1 .. $n;
+    $name => eval_string "sub { my (\$arg, $xs) = \@_; $name(${xs}ref(\$arg) eq 'ARRAY' ? \@\$arg : \$_[0]) }"
 }
 
 sub _fixed_opt {
-	my ($n, $m, $name) = @_;
-	$name => do {
-		no warnings 'once';
-		no strict 'refs';
-		*{"CORE::$name"}{CODE}
-	} || eval_string do {
-		my $args = join ', ', map "\$_[$_]", 0 .. $n - 1;
-		my $base = "$name $args";
-		my $code = $base;
-		for my $c (0 .. $m - 1) {
-			my $i = $n + $c;
-			$base .= ", \$_[$i]";
-			$code = "\@_ > $i ? $base : $code";
-		}
-		"sub { $code }"
-	}
+    my ($n, $m, $name) = @_;
+    $name => do {
+        no warnings 'once';
+        no strict 'refs';
+        *{"CORE::$name"}{CODE}
+    } || eval_string do {
+        my $args = join ', ', map "\$_[$_]", 0 .. $n - 1;
+        my $base = "$name $args";
+        my $code = $base;
+        for my $c (0 .. $m - 1) {
+            my $i = $n + $c;
+            $base .= ", \$_[$i]";
+            $code = "\@_ > $i ? $base : $code";
+        }
+        "sub { $code }"
+    }
 }
 
 sub _fixed {
-	my ($n, $name) = @_;
-	_fixed_opt $n, 0, $name
+    my ($n, $name) = @_;
+    _fixed_opt $n, 0, $name
 }
 
 sub _scalar {
-	my ($name) = @_;
-	_fixed 1, $name
+    my ($name) = @_;
+    _fixed 1, $name
 }
 
 sub _hxa {
-	my ($name) = @_;
-	my $body =
-		$^V ge v5.12.0 ?
-			"ref(\$_[0]) eq 'ARRAY' ? $name \@{\$_[0]} : $name %{\$_[0]}" :
-			"$name %{\$_[0]}"
-	;
-	$body = "[$body]" unless $name eq 'each';
-	$name => eval_string("sub { $body }")
+    my ($name) = @_;
+    my $body =
+        $^V ge v5.12.0 ?
+            "ref(\$_[0]) eq 'ARRAY' ? $name \@{\$_[0]} : $name %{\$_[0]}" :
+            "$name %{\$_[0]}"
+    ;
+    $body = "[$body]" unless $name eq 'each';
+    $name => eval_string("sub { $body }")
 }
 
 my %functions = (
-	apply => sub { my $x = shift; my $f = shift; $f->($x, @_) },
-	list => sub { ref($_[0]) eq 'HASH' ? %{$_[0]} : @{$_[0]} },
-	qr => sub { @_ > 1 ? qr/(?$_[1])$_[0]/ : qr/$_[0]/ },
+    apply => sub { my $x = shift; my $f = shift; $f->($x, @_) },
+    list => sub { ref($_[0]) eq 'HASH' ? %{$_[0]} : @{$_[0]} },
+    qr => sub { @_ > 1 ? qr/(?$_[1])$_[0]/ : qr/$_[0]/ },
 
-	m    => sub { $_[0] =~ /$_[1]/   },
-	m_g  => sub { $_[0] =~ /$_[1]/g  },
-	m_gc => sub { $_[0] =~ /$_[1]/gc },
+    m    => sub { $_[0] =~ /$_[1]/   },
+    m_g  => sub { $_[0] =~ /$_[1]/g  },
+    m_gc => sub { $_[0] =~ /$_[1]/gc },
 
-	s    => sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/e  : $_[0] =~ s/$_[1]/$_[2]/  },
-	s_g  => sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/ge : $_[0] =~ s/$_[1]/$_[2]/g },
-	$^V ge v5.14.0 ? (
-		s_r  => eval_string('sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/re  : $_[0] =~ s/$_[1]/$_[2]/r  }'),
-		s_gr => eval_string('sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/gre : $_[0] =~ s/$_[1]/$_[2]/gr }'),
-	) : (
-		s_r  => sub { my $s = $_[0]; if (ref $_[2]) { $s =~ s/$_[1]/$_[2]()/e  } else { $s =~ s/$_[1]/$_[2]/  } $s },
-		s_gr => sub { my $s = $_[0]; if (ref $_[2]) { $s =~ s/$_[1]/$_[2]()/ge } else { $s =~ s/$_[1]/$_[2]/g } $s },
-	),
+    s    => sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/e  : $_[0] =~ s/$_[1]/$_[2]/  },
+    s_g  => sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/ge : $_[0] =~ s/$_[1]/$_[2]/g },
+    $^V ge v5.14.0 ? (
+        s_r  => eval_string('sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/re  : $_[0] =~ s/$_[1]/$_[2]/r  }'),
+        s_gr => eval_string('sub { ref($_[2]) ? $_[0] =~ s/$_[1]/$_[2]()/gre : $_[0] =~ s/$_[1]/$_[2]/gr }'),
+    ) : (
+        s_r  => sub { my $s = $_[0]; if (ref $_[2]) { $s =~ s/$_[1]/$_[2]()/e  } else { $s =~ s/$_[1]/$_[2]/  } $s },
+        s_gr => sub { my $s = $_[0]; if (ref $_[2]) { $s =~ s/$_[1]/$_[2]()/ge } else { $s =~ s/$_[1]/$_[2]/g } $s },
+    ),
 
-	(map _filetest($_), qw(
-		r w x o
-		R W X O
-		e z s
-		f d l p S b c t
-		u g k
-		T B
-		M A C
-	)),
+    (map _filetest($_), qw(
+        r w x o
+        R W X O
+        e z s
+        f d l p S b c t
+        u g k
+        T B
+        M A C
+    )),
 
-	_scalar('abs'),
-	_scalar('alarm'),
-	_fixed(2, 'atan2'),
-	bless => defined &CORE::bless ? \&CORE::bless : sub { bless $_[0], @_ > 1 ? $_[1] : scalar caller },
-	_scalar('chdir'),
-	_xlist(1, 'chmod'),
-	_xlist(0, 'chomp'),
-	_xlist(0, 'chop'),
-	_xlist(2, 'chown'),
-	_scalar('chr'),
-	_scalar('chroot'),
-	_scalar('cos'),
-	_fixed(2, 'crypt'),
-	defined => sub { defined $_[0] },
-	delete => sub {
-		ref($_[0]) eq 'ARRAY' ?
-			delete $_[0][$_[1]] :
-			delete $_[0]{$_[1]}
-	},
-	_scalar('die'),
-	_hxa('each'),
-	eval => sub { eval $_[0] },
-	exec => sub {
-		my $prog = shift;
-		@_ ? exec { $prog } @_ :
-		ref($prog) eq 'ARRAY' ? exec @$prog :
-		exec $prog
-	},
-	exists => sub {
-		ref($_[0]) eq 'ARRAY' ?
-			exists $_[0][$_[1]] :
-			exists $_[0]{$_[1]}
-	},
-	_scalar('exit'),
-	_scalar('exp'),
-	$^V ge v5.16.0 ? (fc => \&CORE::fc) : (),
-	_scalar('getpgrp'),
-	_scalar('getpwnam'),
-	_scalar('getgrnam'),
-	_scalar('gethostbyname'),
-	_scalar('getnetbyname'),
-	_scalar('getprotobyname'),
-	_scalar('getpwuid'),
-	_scalar('getgrgid'),
-	_fixed(2, 'getservbyname'),
-	_fixed(2, 'gethostbyaddr'),
-	_fixed(2, 'getnetbyaddr'),
-	_scalar('getprotobynumber'),
-	_fixed(2, 'getservbyport'),
-	glob => sub { [ glob $_[0] ] },
-	_scalar('gmtime'),
-	grep => sub { my ($arg, $f) = @_; [ grep $f->($_), @$arg ] },
-	_scalar('hex'),
-	_fixed_opt(2, 1, 'index'),
-	_scalar('int'),
-	join => sub { join $_[1], @{$_[0]} },
-	_hxa('keys'),
-	_xlist(1, 'kill'),
-	_scalar('lc'),
-	_scalar('lcfirst'),
-	_scalar('length'),
-	_fixed(2, 'link'),
-	_scalar('localtime'),
-	_scalar('log'),
-	_scalar('lstat'),
-	map => sub { my ($arg, $f) = @_; [ map $f->($_), @$arg ] },
-	_scalar('mkdir'),
-	_scalar('oct'),
-	_scalar('ord'),
-	_xlist(1, 'pack'),
-	pop => sub { pop @{$_[0]} },
-	pos => sub :lvalue { @_ > 1 ? pos($_[0]) = $_[1] : pos($_[0]) },
-	_scalar('prototype'),
-	push => sub { my $arg = shift; push @$arg, @_ },
-	_scalar('quotemeta'),
-	_scalar('rand'),
-	_scalar('readlink'),
-	_scalar('ref'),
-	_fixed(2, 'rename'),
-	_scalar('require'),
-	reverse => sub { ref($_[0]) eq 'ARRAY' ? [ reverse @{$_[0]} ] : scalar reverse $_[0] },
-	_fixed_opt(2, 1, 'rindex'),
-	_scalar('rmdir'),
-	shift => sub { shift @{$_[0]} },
-	_scalar('sin'),
-	_scalar('sleep'),
-	sort => sub { [ @_ > 1 ? sort { $_[1]($a, $b) } @{$_[0]} : sort @{$_[0]} ] },
-	splice => sub {
-		my $arg = shift;
-		return splice @$arg unless @_;
-		my $offset = shift;
-		return splice @$arg, $offset unless @_;
-		my $length = shift;
-		splice @$arg, $offset, $length, @_
-	},
-	split => sub { [ @_ > 2 ? split $_[1], $_[0], $_[2] : @_ > 1 ? split $_[1], $_[0] : split ' ', $_[0] ] },
-	_xlist(1, 'sprintf'),
-	_scalar('sqrt'),
-	_scalar('srand'),
-	_scalar('stat'),
-	_fixed_opt(2, 2, 'substr'),
-	_fixed(2, 'symlink'),
-	syscall => sub { my $arg = shift; syscall $arg, @_ },
-	system => sub {
-		my $prog = shift;
-		@_ ? system { $prog } @_ :
-		ref($prog) eq 'ARRAY' ? system @$prog :
-		system $prog
-	},
-	_fixed(2, 'truncate'),
-	_scalar('uc'),
-	_scalar('ucfirst'),
-	_scalar('umask'),
-	_scalar('unlink'),
-	unpack => sub { unpack $_[1], $_[0] },
-	unshift => sub { my $arg = shift; unshift @$arg, @_ },
-	_xlist(2, 'utime'),
-	_hxa('values'),
-	vec => sub :lvalue { @_ > 3 ? vec($_[0], $_[1], $_[2]) = $_[3] : vec($_[0], $_[1], $_[2]) },
-	_fixed(2, 'waitpid'),
-	waitpid => sub { waitpid $_[0], @_ > 1 ? $_[1] : 0 },
-	_scalar('warn'),
+    _scalar('abs'),
+    _scalar('alarm'),
+    _fixed(2, 'atan2'),
+    bless => defined &CORE::bless ? \&CORE::bless : sub { bless $_[0], @_ > 1 ? $_[1] : scalar caller },
+    _scalar('chdir'),
+    _xlist(1, 'chmod'),
+    _xlist(0, 'chomp'),
+    _xlist(0, 'chop'),
+    _xlist(2, 'chown'),
+    _scalar('chr'),
+    _scalar('chroot'),
+    _scalar('cos'),
+    _fixed(2, 'crypt'),
+    defined => sub { defined $_[0] },
+    delete => sub {
+        ref($_[0]) eq 'ARRAY' ?
+            delete $_[0][$_[1]] :
+            delete $_[0]{$_[1]}
+    },
+    _scalar('die'),
+    _hxa('each'),
+    eval => sub { eval $_[0] },
+    exec => sub {
+        my $prog = shift;
+        @_ ? exec { $prog } @_ :
+        ref($prog) eq 'ARRAY' ? exec @$prog :
+        exec $prog
+    },
+    exists => sub {
+        ref($_[0]) eq 'ARRAY' ?
+            exists $_[0][$_[1]] :
+            exists $_[0]{$_[1]}
+    },
+    _scalar('exit'),
+    _scalar('exp'),
+    $^V ge v5.16.0 ? (fc => \&CORE::fc) : (),
+    _scalar('getpgrp'),
+    _scalar('getpwnam'),
+    _scalar('getgrnam'),
+    _scalar('gethostbyname'),
+    _scalar('getnetbyname'),
+    _scalar('getprotobyname'),
+    _scalar('getpwuid'),
+    _scalar('getgrgid'),
+    _fixed(2, 'getservbyname'),
+    _fixed(2, 'gethostbyaddr'),
+    _fixed(2, 'getnetbyaddr'),
+    _scalar('getprotobynumber'),
+    _fixed(2, 'getservbyport'),
+    glob => sub { [ glob $_[0] ] },
+    _scalar('gmtime'),
+    grep => sub { my ($arg, $f) = @_; [ grep $f->($_), @$arg ] },
+    _scalar('hex'),
+    _fixed_opt(2, 1, 'index'),
+    _scalar('int'),
+    join => sub { join $_[1], @{$_[0]} },
+    _hxa('keys'),
+    _xlist(1, 'kill'),
+    _scalar('lc'),
+    _scalar('lcfirst'),
+    _scalar('length'),
+    _fixed(2, 'link'),
+    _scalar('localtime'),
+    _scalar('log'),
+    _scalar('lstat'),
+    map => sub { my ($arg, $f) = @_; [ map $f->($_), @$arg ] },
+    _scalar('mkdir'),
+    _scalar('oct'),
+    _scalar('ord'),
+    _xlist(1, 'pack'),
+    pop => sub { pop @{$_[0]} },
+    pos => sub :lvalue { @_ > 1 ? pos($_[0]) = $_[1] : pos($_[0]) },
+    _scalar('prototype'),
+    push => sub { my $arg = shift; push @$arg, @_ },
+    _scalar('quotemeta'),
+    _scalar('rand'),
+    _scalar('readlink'),
+    _scalar('ref'),
+    _fixed(2, 'rename'),
+    _scalar('require'),
+    reverse => sub { ref($_[0]) eq 'ARRAY' ? [ reverse @{$_[0]} ] : scalar reverse $_[0] },
+    _fixed_opt(2, 1, 'rindex'),
+    _scalar('rmdir'),
+    shift => sub { shift @{$_[0]} },
+    _scalar('sin'),
+    _scalar('sleep'),
+    sort => sub { [ @_ > 1 ? sort { $_[1]($a, $b) } @{$_[0]} : sort @{$_[0]} ] },
+    splice => sub {
+        my $arg = shift;
+        return splice @$arg unless @_;
+        my $offset = shift;
+        return splice @$arg, $offset unless @_;
+        my $length = shift;
+        splice @$arg, $offset, $length, @_
+    },
+    split => sub { [ @_ > 2 ? split $_[1], $_[0], $_[2] : @_ > 1 ? split $_[1], $_[0] : split ' ', $_[0] ] },
+    _xlist(1, 'sprintf'),
+    _scalar('sqrt'),
+    _scalar('srand'),
+    _scalar('stat'),
+    _fixed_opt(2, 2, 'substr'),
+    _fixed(2, 'symlink'),
+    syscall => sub { my $arg = shift; syscall $arg, @_ },
+    system => sub {
+        my $prog = shift;
+        @_ ? system { $prog } @_ :
+        ref($prog) eq 'ARRAY' ? system @$prog :
+        system $prog
+    },
+    _fixed(2, 'truncate'),
+    _scalar('uc'),
+    _scalar('ucfirst'),
+    _scalar('umask'),
+    _scalar('unlink'),
+    unpack => sub { unpack $_[1], $_[0] },
+    unshift => sub { my $arg = shift; unshift @$arg, @_ },
+    _xlist(2, 'utime'),
+    _hxa('values'),
+    vec => sub :lvalue { @_ > 3 ? vec($_[0], $_[1], $_[2]) = $_[3] : vec($_[0], $_[1], $_[2]) },
+    _fixed(2, 'waitpid'),
+    waitpid => sub { waitpid $_[0], @_ > 1 ? $_[1] : 0 },
+    _scalar('warn'),
 );
 
 our @EXPORT = map '$_' . $_, keys %functions;
 
 for my $k (keys %functions) {
-	my $v = $functions{$k};
-	my $svref = do { no strict 'refs'; \${"_$k"} };
-	$$svref = $v;
-	Internals::SvREADONLY($$svref, 1) if defined &Internals::SvREADONLY;
+    my $v = $functions{$k};
+    my $svref = do { no strict 'refs'; \${"_$k"} };
+    $$svref = $v;
+    Internals::SvREADONLY($$svref, 1) if defined &Internals::SvREADONLY;
 }
 
 'ok'
