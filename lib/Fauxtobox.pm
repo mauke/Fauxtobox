@@ -3,6 +3,7 @@ package Fauxtobox;
 use strict;
 use warnings;
 
+use Scalar::Util qw(blessed);
 use Data::Munge qw(eval_string);
 
 use Exporter;
@@ -70,8 +71,8 @@ sub _hxa {
 
 my %functions = (
     apply => sub { my $x = shift; my $f = shift; $f->($x, @_) },
-    list => sub { ref($_[0]) eq 'HASH' ? %{$_[0]} : @{$_[0]} },
-    qr => sub { @_ > 1 ? qr/(?$_[1])$_[0]/ : qr/$_[0]/ },
+    list  => sub { ref($_[0]) eq 'HASH' ? %{$_[0]} : @{$_[0]} },
+    qr    => sub { @_ > 1 ? qr/(?$_[1])$_[0]/ : qr/$_[0]/ },
 
     m    => sub { $_[0] =~ /$_[1]/   },
     m_g  => sub { $_[0] =~ /$_[1]/g  },
@@ -226,7 +227,7 @@ our @EXPORT = map '$_' . $_, keys %functions;
 for my $k (keys %functions) {
     my $v = $functions{$k};
     my $svref = do { no strict 'refs'; \${"_$k"} };
-    $$svref = $v;
+    $$svref = sub { blessed($_[0]) and return shift->$k(@_); goto &$v };
     Internals::SvREADONLY($$svref, 1) if defined &Internals::SvREADONLY;
 }
 
@@ -259,7 +260,7 @@ What this module does is much simpler: It exports a bunch of variables that can
 be used like methods. These method variables can be used on any value, not just
 objects.
 
-=head2 Exported methods
+=head2 Exported symbols
 
 By default everything listed below is exported. If you don't want that, you can
 explicitly list the variables you want:
@@ -269,6 +270,12 @@ explicitly list the variables you want:
 For convenience you can omit the leading C<$_> in the import list:
 
   use Fauxtobox qw(defined length apply);
+
+=head2 Methods
+
+If you call any of these fake methods on a real object, it will simply forward
+to a method of the same name, i.e. C<< $obj->$_foo(...) >> is equivalent to
+C<< $obj->foo(...) >> if C<$obj> is blessed.
 
 Several functions in Perl take or return lists. In general, the method
 equivalents of these take and return array references instead, to make method
@@ -1022,39 +1029,6 @@ See L<perlfunc/waitpid>.
 C<< $X->$_warn >> is equivalent to C<< warn $X >>.
 
 See L<perlfunc/warn>.
-
-=back
-
-=head1 SUPPORT AND DOCUMENTATION
-
-After installing, you can find documentation for this module with the
-perldoc command.
-
-    perldoc Fauxtobox
-
-You can also look for information at:
-
-=over
-
-=item MetaCPAN
-
-L<https://metacpan.org/module/Function%3A%3AParameters>
-
-=item RT, CPAN's request tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Fauxtobox>
-
-=item AnnoCPAN, Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Fauxtobox>
-
-=item CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Fauxtobox>
-
-=item Search CPAN
-
-L<http://search.cpan.org/dist/Fauxtobox/>
 
 =back
 

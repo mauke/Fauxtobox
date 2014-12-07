@@ -31,6 +31,7 @@ my %opt = (
         'warnings'       => 0,
         'Data::Munge'    => '0.05',
         'Exporter'       => 0,
+        'Scalar::Util'   => 0,
     },
 
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },

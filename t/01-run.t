@@ -1,6 +1,6 @@
 #!perl
 
-use Test::More tests => 114;
+use Test::More tests => 115;
 
 use warnings FATAL => 'all';
 use strict;
@@ -165,8 +165,14 @@ is undef->$_ref, ref undef;
 is "hallo"->$_ref, ref "hallo";
 is []->$_ref, ref [];
 {
-    my $obj = bless {}, "orb florb zorb";
-    is $obj->$_ref, ref $obj;
+    package Tref;
+    sub new { +{}->$::_bless($_[0]) }
+    sub ref { CORE::ref($_[0]) . ' (fake)' }
+}
+{
+    my $obj = Tref->new;
+    is ref($obj), 'Tref';
+    is $obj->$_ref, 'Tref (fake)';
 }
 
 is "hello"->$_reverse, "olleh";
