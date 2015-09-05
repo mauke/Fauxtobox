@@ -253,8 +253,8 @@ Fauxtobox - fake autoboxing (call methods on plain scalars)
 =head1 DESCRIPTION
 
 This module provides fake autoboxing support. I<Autoboxing> means being able to
-call methods on non-objects like C<42> or C<'hello'> because the language will
-automatically wrap them in objects. If you want that, see L<autobox>.
+call methods on non-objects like C<42> or C<'hello'> in the same way as objects.
+If you want that, see L<autobox>.
 
 What this module does is much simpler: It exports a bunch of variables that can
 be used like methods. These method variables can be used on any value, not just
