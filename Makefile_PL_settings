@@ -1,0 +1,23 @@
+# vi:set ft=perl:
+use strict;
+use warnings;
+
+return {
+    NAME   => 'Fauxtobox',
+    AUTHOR => q{Lukas Mai <l.mai@web.de>},
+
+    CONFIGURE_REQUIRES => {},
+    BUILD_REQUIRES => {},
+    TEST_REQUIRES => {
+        'Test::More'  => 0,
+    },
+    PREREQ_PM => {
+        'strict'         => 0,
+        'warnings'       => 0,
+        'Data::Munge'    => '0.05',
+        'Exporter'       => 0,
+        'Scalar::Util'   => 0,
+    },
+
+    bonus => { github => 'mauke' },
+};
